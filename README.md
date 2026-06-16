@@ -1,54 +1,82 @@
 # Práctica de Sistemas Multi-Agente: Comunicación A2A (Agent-to-Agent)
 
 ## Objetivo de la Práctica
-El objetivo de este proyecto es ilustrar la implementación de un sistema distribuido de agentes autónomos que se comunican entre sí mediante un protocolo estandarizado (A2A). El escenario desarrollado simula un debate futbolístico interactivo entre dos entidades con roles contrapuestos: un analista táctico moderno (que actúa como cliente) y un historiador clásico del fútbol (que opera como servidor).
+El objetivo de este proyecto es ilustrar la implementación de un sistema distribuido de agentes autónomos que se comunican entre sí mediante un protocolo estandarizado (A2A). El escenario desarrollado simula un debate futbolístico interactivo entre dos entidades de Inteligencia Artificial con roles contrapuestos: un analista táctico moderno (que actúa como cliente) y un historiador clásico del fútbol (que opera como servidor).
 
-El presente documento detalla la arquitectura, el diseño y el flujo de ejecución del componente servidor (`football_debate_server.py`).
+Este documento detalla la arquitectura global, el diseño lógico de ambos nodos y el flujo de ejecución necesario para replicar el experimento.
 
-## Arquitectura del Servidor
+---
 
-El servidor se encarga de exponer un agente conversacional a través de una interfaz HTTP utilizando el protocolo JSON-RPC. La infraestructura tecnológica se fundamenta en los siguientes componentes:
-- **Framework Web asíncrono**: Starlette, servido mediante Uvicorn.
-- **Motor de Inferencia LLM**: Azure OpenAI.
-- **Framework de Agentes**: Librería `agent_framework`, empleando sus módulos específicos para el protocolo A2A.
+## Arquitectura del Sistema
 
-### Análisis de Componentes y Flujo de Ejecución
+El proyecto se divide en dos componentes principales que interactúan a través de una red local utilizando el protocolo **JSON-RPC** sobre **HTTP**. Toda la inferencia cognitiva está respaldada por los servicios de **Azure OpenAI**.
 
-El código fuente de `football_debate_server.py` sigue una estructura secuencial orientada a la configuración y despliegue del servicio. A continuación se desglosan sus etapas operativas.
+### 1. El Nodo Servidor (`football_debate_server.py`)
+El servidor expone de forma pasiva a un agente conversacional. Su propósito es mantenerse a la escucha y emitir respuestas cuando un cliente externo inicie una comunicación.
 
-#### 1. Inyección de Dependencias y Entorno
-El sistema requiere credenciales de acceso para interactuar con los servicios cognitivos de Azure (`AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT_NAME`). Estas variables se inyectan en tiempo de ejecución utilizando el módulo `dotenv` para evitar exponer información sensible en el código fuente.
+*   **Infraestructura Web**: Utiliza **Starlette** (un framework asíncrono) gestionado mediante **Uvicorn**, exponiendo el servicio en el puerto local `5001`.
+*   **Manifiesto del Agente (Agent Card)**: El servidor expone públicamente un contrato o metadatos técnicos (`AgentCard`). Esto habilita el paradigma de descubrimiento de servicios (*Service Discovery*); cualquier cliente puede consultar esta tarjeta para confirmar que el agente ("Classic Football Historian") existe, verificar sus modos de entrada/salida, y determinar la ruta y protocolo de conexión correctos.
+*   **Delimitación del Comportamiento (System Prompt)**: El agente tiene inyectadas instrucciones sistémicas estrictas. Su directiva es actuar con la personalidad de un analista veterano, defendiendo tácticas históricas (como el Ajax de Cruyff o el Milan de Sacchi) y debatiendo en español con un tono directo y agresivo frente al fútbol moderno.
+*   **A2AExecutor**: Es el núcleo de procesamiento. Intercepta la petición de red entrante, la empaqueta como una consulta válida para el modelo subyacente (LLM) y devuelve la respuesta estructurada de vuelta al cliente.
 
-#### 2. Configuración del Cliente de Lenguaje
-Se instancia la clase `AsyncAzureOpenAI` para establecer la conexión asíncrona con el proveedor del modelo. Posteriormente, este cliente nativo se encapsula dentro de `OpenAIChatClient`, una capa de abstracción del framework de agentes que estandariza las llamadas al modelo, permitiendo intercambiar el proveedor de IA subyacente si fuese necesario en futuras iteraciones.
+### 2. El Nodo Cliente (`football_debate_client.py`)
+El cliente es el nodo activo de la arquitectura. Se encarga de iniciar la simulación, generar la premisa del debate y orquestar la llamada de red hacia el servidor.
 
-#### 3. Definición del Manifiesto del Agente (Agent Card)
-La estructura `AgentCard` funciona como un contrato público. Su propósito es exponer los metadatos y capacidades del agente para permitir el descubrimiento de red (service discovery).
-Los campos declarados incluyen:
-- **Identidad**: Nombre y descripción funcional del agente ("Classic Football Historian").
-- **Capacidades de red**: Declaración de soporte para envío de respuestas parciales en tiempo real (*streaming*).
-- **Interfaces**: Especificación del protocolo de comunicación (`JSONRPC`) y el punto de acceso (`http://localhost:5001/`).
+*   **Generación Local**: En la primera fase, el cliente instancia localmente a su propio agente ("Modern Football Analyst"). Se le suministra una pregunta semilla (*España 2010 vs Argentina 2022*) y este agente genera un primer argumento basado en métricas analíticas contemporáneas (posesión, xG, PPDA, presión alta).
+*   **Descubrimiento de Red (A2ACardResolver)**: Una vez obtenida la base del debate, el script utiliza peticiones asíncronas HTTP (`httpx`) para contactar al servidor (`http://localhost:5001/`). Extrae el manifiesto (`AgentCard`) para validar que el "Historiador Clásico" está en línea y acepta la conexión.
+*   **Invocación Remota**: Utilizando el envoltorio `A2AAgent`, el cliente compila la opinión previa del analista moderno y la transmite al servidor a través de la red, instándole a que la rebata directamente.
+*   **Recepción y Renderizado**: El cliente suspende su ejecución principal esperando la resolución del modelo remoto. Al recibir el bloque de texto del servidor, finaliza la simulación imprimiendo el debate estructurado en la consola.
 
-#### 4. Delimitación del Comportamiento (System Prompt)
-El comportamiento del agente se restringe mediante un conjunto de instrucciones del sistema. En este contexto, se fuerza al LLM a adoptar el rol de un analista veterano, especializado en equipos históricos como el Ajax de Cruyff o el Milan de Sacchi. Esta parametrización garantiza la coherencia de las respuestas generadas a lo largo de las interacciones y mantiene la lógica de negocio del debate.
+---
 
-#### 5. Orquestación y Manejo de Peticiones
-La clase `DefaultRequestHandler` es el núcleo lógico del servidor HTTP. Se encarga de coordinar la entrada de datos con el modelo de lenguaje.
-Requiere tres elementos para su inicialización:
-- **A2AExecutor**: Un envoltorio que procesa la carga útil de la petición JSON-RPC y la redirige al objeto `Agent`.
-- **Task Store**: Un sistema de almacenamiento volátil (`InMemoryTaskStore`) utilizado para llevar el control del estado y la ejecución de las tareas concurrentes.
-- **Agent Card**: La referencia al manifiesto del agente para la validación de capacidades.
+## Requisitos Previos e Instalación
 
-#### 6. Despliegue del Servidor Web
-En la fase final, se inicializa la aplicación `Starlette`. Se le inyectan dos grupos de rutas de red:
-- `create_agent_card_routes`: Un endpoint pasivo que sirve el manifiesto (`AgentCard`) a cualquier cliente que realice una petición de descubrimiento.
-- `create_jsonrpc_routes`: El endpoint activo (mapeado a la raíz `/`) encargado de interceptar, decodificar y enrutar las peticiones JSON-RPC hacia el `RequestHandler`.
+Para ejecutar este entorno distribuido localmente, es necesario aislar las dependencias utilizando un entorno virtual de Python.
 
-El bloqueo del hilo principal y la gestión del ciclo de eventos quedan delegados a `uvicorn`, exponiendo el servicio de manera ininterrumpida en el puerto definido.
+```bash
+# 1. Crear y activar un entorno virtual (recomendado)
+python -m venv .venv
+# En Windows (Powershell):
+.\.venv\Scripts\activate
+
+# 2. Instalar las dependencias de red y frameworks
+pip install -r requirements.txt
+```
+
+### Configuración de Credenciales (`.env`)
+El sistema requiere autenticación obligatoria contra la API de Azure OpenAI. Debe existir un archivo oculto `.env` en la raíz del proyecto. Este archivo ha sido deliberadamente excluido del control de versiones (`.gitignore`) por estándares críticos de seguridad. Su estructura interna debe ser la siguiente:
+
+```ini
+# Azure OpenAI Settings
+AZURE_OPENAI_ENDPOINT="https://<TU_RECURSO>.openai.azure.com/"
+AZURE_OPENAI_API_KEY="<TU_API_KEY_AQUI>"
+AZURE_OPENAI_DEPLOYMENT_NAME="gpt-4o-mini" # o la versión de tu despliegue
+
+# A2A Configuration
+A2A_AGENT_HOST="http://localhost:5001/"
+```
+*(Nota técnica: Es imperativo que la URI configurada en `AZURE_OPENAI_ENDPOINT` apunte a la base del recurso y no termine en el sufijo `/openai/v1`, garantizando así la correcta interoperabilidad con la API de Respuestas del SDK de Python).*
+
+---
 
 ## Instrucciones de Ejecución
-Para iniciar el nodo servidor en un entorno de pruebas local, valide la existencia del archivo de configuración `.env` en la raíz del directorio y ejecute el script principal:
 
+La naturaleza distribuida de esta práctica exige la ejecución concurrente de ambos nodos en terminales independientes.
+
+### Paso 1: Inicializar el Nodo Servidor
+Abra una primera terminal, asegúrese de tener activado el entorno virtual (`.venv`) y ejecute el servicio base:
 ```bash
 python football_debate_server.py
 ```
+*Salida esperada:* El proceso indicará por consola que el servidor ha sido levantado correctamente (`Starting A2A Server...`) en el puerto 5001. La terminal debe mantenerse abierta.
+
+### Paso 2: Lanzar el Nodo Cliente e Iniciar el Debate
+Abra una **segunda terminal** paralela, active de nuevo el entorno virtual, y lance el script cliente:
+```bash
+python football_debate_client.py
+```
+*Salida esperada:* 
+1. El bloque presentará la pregunta inicial del debate.
+2. El Agente Local (Analista Moderno) procesará e imprimirá su análisis completo.
+3. El sistema notificará el éxito en el descubrimiento de red y la conexión remota hacia el servidor A2A.
+4. El Agente Remoto (Historiador Clásico) devolverá su contraargumento, finalizando la ejecución.
