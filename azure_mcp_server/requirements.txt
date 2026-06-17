@@ -1,0 +1,7 @@
+azure-functions>=1.24.0
+python-dotenv
+openai
+wikipedia
+duckduckgo-search
+agent-framework-core==1.7.0
+agent-framework-openai==1.7.0

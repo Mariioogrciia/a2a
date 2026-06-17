@@ -11,4 +11,7 @@ python-dotenv
 openai
 sse-starlette
 mcp
- 
+azure-functions
+starlette
+wikipedia
+duckduckgo-search
