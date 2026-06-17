@@ -168,7 +168,6 @@ async def _analisis_tactico_async(equipo_a: str, equipo_b: str) -> str:
         
         # Inyectamos los datos reales recopilados al final del resultado para que podamos debugear qué está pasando con las IPs de Azure
         debug_info = f"\n\n---\n**[DEBUG INFO - Datos extraídos desde Azure]**\n"
-        debug_info += f"- **RAW CONTEXT**: {context}\n"
         debug_info += f"- **Wiki {equipo_a}**: {info_a_wiki[:100]}...\n"
         debug_info += f"- **Noticias {equipo_a}**: {info_a_noticias[:100]}...\n"
         debug_info += f"- **Wiki {equipo_b}**: {info_b_wiki[:100]}...\n"
@@ -176,7 +175,7 @@ async def _analisis_tactico_async(equipo_a: str, equipo_b: str) -> str:
         
         return respuesta.text + debug_info
     except Exception as e:
-        return f"Error ejecutando el análisis LLM: {str(e)}\nContext era: {context}"
+        return f"Error ejecutando el análisis LLM: {str(e)}"
 
 
 def _buscar_wikipedia_sync(consulta: str) -> str:
