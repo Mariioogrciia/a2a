@@ -12,12 +12,9 @@ async def main():
         print("Please configure GITHUB_PERSONAL_ACCESS_TOKEN in .env")
         return
 
-    # Parámetros para iniciar el servidor MCP de GitHub a través de npx
-    # Se añade cmd.exe /c npx si estás en Windows para evitar problemas con la ejecución de npx
-    npx_command = "npx.cmd" if os.name == "nt" else "npx"
-    
+    # Parámetros para iniciar el servidor MCP de GitHub a través de npx    
     server_params = StdioServerParameters(
-        command=npx_command,
+        command="npx.cmd",
         args=["-y", "@modelcontextprotocol/server-github"],
         env={**os.environ, "GITHUB_PERSONAL_ACCESS_TOKEN": github_token}
     )
