@@ -78,22 +78,27 @@ def obtener_noticias_equipo(context) -> str:
     tool_properties='[{"propertyName": "equipo_a", "propertyType": "string", "description": "El nombre del primer equipo"}, {"propertyName": "equipo_b", "propertyType": "string", "description": "El nombre del segundo equipo"}]'
 )
 def analisis_tactico_avanzado(context) -> str:
-    request = json.loads(context)
-    args = request.get("arguments", request) if isinstance(request, dict) else request
-    equipo_a = args.get("equipo_a", "") if isinstance(args, dict) else ""
-    equipo_b = args.get("equipo_b", "") if isinstance(args, dict) else ""
-    
-    # Run the async logic synchronously since MCP tool triggers are sync
     try:
-        result = asyncio.run(_analisis_tactico_async(equipo_a, equipo_b))
-        return json.dumps({"result": result})
-    except RuntimeError:
-        # If there's already a running event loop, use nest_asyncio or create a new thread
-        import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(asyncio.run, _analisis_tactico_async(equipo_a, equipo_b))
-            result = future.result()
-        return json.dumps({"result": result})
+        request = json.loads(context)
+        args = request.get("arguments", request) if isinstance(request, dict) else request
+        equipo_a = args.get("equipo_a", "") if isinstance(args, dict) else ""
+        equipo_b = args.get("equipo_b", "") if isinstance(args, dict) else ""
+        
+        # Run the async logic synchronously since MCP tool triggers are sync
+        try:
+            result = asyncio.run(_analisis_tactico_async(equipo_a, equipo_b))
+            return json.dumps({"result": result})
+        except RuntimeError:
+            # If there's already a running event loop, use nest_asyncio or create a new thread
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, _analisis_tactico_async(equipo_a, equipo_b))
+                result = future.result()
+            return json.dumps({"result": result})
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        return json.dumps({"result": f"Global Error in analisis_tactico_avanzado: {str(e)}\nTraceback: {tb}\nContext received: {context}"})
 
 
 async def _analisis_tactico_async(equipo_a: str, equipo_b: str) -> str:

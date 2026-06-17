@@ -3,14 +3,18 @@ import sys
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 
+import os
+from dotenv import load_dotenv
+
 # Asegurar codificación utf-8 en Windows
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding='utf-8')
 
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+
 async def test():
     # URL del endpoint MCP de Azure Functions con la clave del sistema
     # El endpoint requiere autenticación: /runtime/webhooks/mcp/sse?code=<key>
-    import os
     master_key = os.environ.get("AZURE_FUNCTION_KEY", "TU_CLAVE_AQUI")
     url = f"https://function-futbol-mcp.azurewebsites.net/runtime/webhooks/mcp/sse?code={master_key}"
     
